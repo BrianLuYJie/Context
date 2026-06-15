@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>预订管理重构 - 还原实现</title>
+  <style>
+    :root {
+      --brand: #1c8cfc;
+      --brand-soft: #e6f4ff;
+      --green-soft: #e3f7ef;
+      --green-today: #abe6cf;
+      --line: #e7e7e7;
+      --text: rgba(0, 0, 0, .9);
+      --sub: #666;
+      --muted: rgba(0, 0, 0, .6);
+      --orange: #ed7b2f;
+      --danger: #fa3232;
+      font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: #eef2fa;
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .stage {
+      width: 1440px;
+      height: 840px;
+      position: relative;
+      overflow: hidden;
+      background: #edf1f9;
+      transform-origin: top left;
+    }
+
+    .reference-shell {
+      position: absolute;
+      inset: 0;
+      width: 1440px;
+      height: 840px;
+      object-fit: cover;
+      user-select: none;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .content {
+      position: absolute;
+      left: 216px;
+      top: 62px;
+      width: 1224px;
+      height: 778px;
+      background: #fff;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .top-strip {
+      height: 64px;
+      position: relative;
+      background: #fff;
+      border-radius: 4px 0 0 4px;
+    }
+
+    .page-title {
+      position: absolute;
+      left: 16px;
+      top: 19px;
+      margin: 0;
+      font-size: 18px;
+      line-height: 26px;
+      font-weight: 600;
+    }
+
+    .tabs {
+      position: absolute;
+      left: 436px;
+      top: 0;
+      display: flex;
+      height: 64px;
+      align-items: stretch;
+    }
+
+    .tab {
+      height: 64px;
+      border: 0;
+      background: #fff;
+      padding: 0 16px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 24px;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+    }
+
+    .tab:nth-child(2),
+    .tab:nth-child(4) {
+      padding-left: 17px;
+      padding-right: 17px;
+    }
+
+    .tab.active {
+      color: var(--brand);
+      border-bottom-color: var(--brand);
+    }
+
+    .store-select {
+      position: absolute;
+      left: 956px;
+      top: 12px;
+      min-width: 156px;
+      height: 40px;
+      border: 0;
+      background: transparent;
+      color: var(--brand);
+      font-size: 14px;
+      font-weight: 600;
+      outline: 0;
+      cursor: pointer;
+    }
+
+    .search-btn {
+      position: absolute;
+      left: 1120px;
+      top: 12px;
+      width: 80px;
+      height: 40px;
+      border: 1px solid var(--brand);
+      border-radius: 3px;
+      background: #fff;
+      color: var(--brand);
+      font-size: 16px;
+      line-height: 24px;
+      cursor: pointer;
+    }
+
+    .search-btn:active,
+    .nav-btn:active,
+    .tab:active {
+      transform: translateY(1px);
+    }
+
+    .calendar {
+      position: relative;
+      width: 1224px;
+      height: 702px;
+      margin-top: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .nav-btn {
+      position: absolute;
+      top: 0;
+      width: 38px;
+      height: 58px;
+      border: 0;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+      color: #00a870;
+      font-size: 30px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .nav-btn:hover,
+    .nav-btn.is-hovering {
+      background: #e8f3ff;
+    }
+
+    .nav-btn::after {
+      position: absolute;
+      top: 50%;
+      padding: 11px 18px;
+      border-radius: 6px;
+      background: #000;
+      color: #fff;
+      font-size: 18px;
+      line-height: 26px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-50%);
+      transition: opacity .12s ease;
+      content: attr(data-tip);
+    }
+
+    .nav-btn:hover::after,
+    .nav-btn.is-hovering::after {
+      opacity: 1;
+    }
+
+    .prev-btn::after {
+      left: 32px;
+    }
+
+    .next-btn::after {
+      right: 32px;
+    }
+
+    .prev-btn::before,
+    .next-btn::before {
+      position: absolute;
+      top: 50%;
+      width: 12px;
+      height: 12px;
+      background: #000;
+      opacity: 0;
+      transform: translateY(-50%) rotate(45deg);
+      transition: opacity .12s ease;
+      content: "";
+      pointer-events: none;
+    }
+
+    .prev-btn::before {
+      left: 27px;
+    }
+
+    .next-btn::before {
+      right: 27px;
+    }
+
+    .nav-btn:hover::before,
+    .nav-btn.is-hovering::before {
+      opacity: 1;
+    }
+
+    .prev-btn {
+      left: 0;
+    }
+
+    .next-btn {
+      left: 1186px;
+      border-left: 1px solid var(--line);
+      border-right: 0;
+    }
+
+    .day-header {
+      position: absolute;
+      top: 0;
+      width: 175px;
+      height: 58px;
+      background: var(--green-soft);
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: center;
+      padding-top: 8px;
+    }
+
+    .day-header.today {
+      background: var(--green-today);
+    }
+
+    .day-header[data-day="0"] { left: 38px; width: 137px; }
+    .day-header[data-day="1"] { left: 175px; }
+    .day-header[data-day="2"] { left: 350px; }
+    .day-header[data-day="3"] { left: 525px; }
+    .day-header[data-day="4"] { left: 700px; }
+    .day-header[data-day="5"] { left: 875px; }
+    .day-header[data-day="6"] { left: 1050px; width: 136px; }
+
+    .date-line {
+      font-size: 16px;
+      line-height: 22px;
+      font-weight: 600;
+    }
+
+    .date-line span {
+      display: inline-block;
+      margin-left: 14px;
+    }
+
+    .capacity {
+      margin-top: 1px;
+      font-size: 12px;
+      line-height: 20px;
+      color: var(--sub);
+    }
+
+    .slot {
+      position: absolute;
+      width: 175px;
+      height: 80px;
+      min-width: 0;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .slot.blank {
+      cursor: default;
+    }
+
+    .course {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      padding: 8px 8px 0;
+      border: 0;
+      background: #fff;
+      color: var(--sub);
+      text-align: left;
+      cursor: default;
+      overflow: hidden;
+    }
+
+    .course:focus,
+    .course:focus-visible {
+      outline: 0;
+    }
+
+    .course.selected {
+      background: #fff;
+    }
+
+    .course.full,
+    .course.waiting {
+      background: #fff7e8;
+    }
+
+    .course.expired {
+      background: #fafafa;
+    }
+
+    .course:hover {
+      background: #e8f3ff;
+    }
+
+    .course-title {
+      display: block;
+      width: calc(100% - 24px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      line-height: 22px;
+      font-weight: 600;
+      color: #222;
+    }
+
+    .course-time,
+    .course-teacher,
+    .course-booked,
+    .course-status,
+    .course-min,
+    .course-queue {
+      position: absolute;
+      font-size: 12px;
+      line-height: 20px;
+      color: var(--sub);
+      white-space: nowrap;
+    }
+
+    .course-time {
+      left: 8px;
+      top: 31px;
+      width: 76px;
+      overflow: hidden;
+    }
+
+    .course-teacher {
+      right: 8px;
+      top: 31px;
+      max-width: 52px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: right;
+    }
+
+    .course-booked {
+      left: 8px;
+      top: 52px;
+    }
+
+    .course-booked strong,
+    .course-queue strong {
+      color: var(--brand);
+      font-weight: 400;
+    }
+
+    .course-status {
+      right: 8px;
+      top: 52px;
+      max-width: 40px;
+      overflow: hidden;
+      text-align: right;
+    }
+
+    .course-min {
+      right: 8px;
+      top: 52px;
+      color: var(--orange);
+      max-width: 72px;
+      overflow: hidden;
+      text-align: right;
+    }
+
+    .course-queue {
+      left: 61px;
+      top: 52px;
+    }
+
+    .full-badge {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 16px;
+      height: 16px;
+      background: var(--danger);
+      color: #fff;
+      border-radius: 0 0 0 3px;
+      font-size: 12px;
+      line-height: 16px;
+      text-align: center;
+    }
+
+    .bottom-note {
+      position: absolute;
+      left: 0;
+      top: 618px;
+      width: 1224px;
+      height: 84px;
+      color: rgba(0, 0, 0, .35);
+      font-size: 12px;
+      line-height: 20px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 12px;
+      background: #fff;
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%) translateY(18px);
+      opacity: 0;
+      transition: .18s ease;
+      background: rgba(0, 0, 0, .76);
+      color: #fff;
+      border-radius: 4px;
+      padding: 8px 14px;
+      font-size: 13px;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <main class="stage" id="stage">
+    <img class="reference-shell" src="assets/figma-full-page.png" alt="">
+
+    <section class="content" aria-label="预订管理右侧内容区域">
+      <header class="top-strip">
+        <h1 class="page-title">预订管理</h1>
+        <nav class="tabs" aria-label="课程类型">
+          <button class="tab active" type="button">小班课</button>
+          <button class="tab" type="button">德基团课</button>
+          <button class="tab" type="button">试听课</button>
+          <button class="tab" type="button">特色私教</button>
+        </nav>
+        <select class="store-select" aria-label="选择门店">
+          <option>新街口德基广场店</option>
+          <option>奥体金鹰世界店</option>
+          <option>河西吾悦广场店</option>
+        </select>
+        <button class="search-btn" type="button">查询</button>
+      </header>
+
+      <div class="calendar" id="calendar" aria-label="周课程预订表">
+        <button class="nav-btn prev-btn" type="button" aria-label="上一周" data-tip="上一周">‹</button>
+        <div class="day-header" data-day="0"><div class="date-line">06-08 <span>周一</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <div class="day-header" data-day="1"><div class="date-line">06-09 <span>周二</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <div class="day-header" data-day="2"><div class="date-line">06-10 <span>周三</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <div class="day-header" data-day="3"><div class="date-line">06-11 <span>周四</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <div class="day-header today" data-day="4"><div class="date-line">06-12 <span>今天</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <div class="day-header" data-day="5"><div class="date-line">06-13 <span>周六</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <div class="day-header" data-day="6"><div class="date-line">06-14 <span>周日</span></div><div class="capacity">共10节&nbsp;&nbsp;已订100/120</div></div>
+        <button class="nav-btn next-btn" type="button" aria-label="下一周" data-tip="下一周">›</button>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </section>
+  </main>
+
+  <script>
+    const calendar = document.getElementById('calendar');
+    const toast = document.getElementById('toast');
+
+    const courses = [
+      { c: 1, r: 1, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '4/4', status: '已截止', full: true },
+      { c: 1, r: 2, title: '艾扬格-肩颈理疗', teacher: 'Moli', booked: '2/4', status: '已截止' },
+      { c: 2, r: 1, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '1/4', min: '未达开课人数' },
+      { c: 2, r: 3, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '3/4', status: '已截止' },
+      { c: 2, r: 4, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '4/4', queue: '3', status: '已截止', full: true },
+      { c: 3, r: 1, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '1/4', status: '已截止' },
+      { c: 3, r: 2, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '1/4', status: '已截止' },
+      { c: 3, r: 3, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '1/4' },
+      { c: 3, r: 4, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '1/4', status: '已截止' },
+      { c: 3, r: 5, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '1/4', status: '已截止' },
+      { c: 3, r: 6, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '1/4', status: '已截止' },
+      { c: 3, r: 7, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '1/4', status: '已截止' },
+      { c: 4, r: 2, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '1/4', status: '已截止' },
+      { c: 5, r: 4, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '3/4', selected: true },
+      { c: 5, r: 5, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '4/4', queue: '3', waiting: true, full: true },
+      { c: 6, r: 6, title: '普拉提核心床小私教-...', teacher: '婷婷老师', booked: '1/4' },
+      { c: 7, r: 3, title: '维密塑形（蜜桃臀）', teacher: 'shily', booked: '1/4' },
+      { c: 7, r: 7, title: '维密塑形（蜜桃臀）', teacher: '婷婷老师', booked: '1/4' }
+    ];
+
+    function emptySlot(c, r) {
+      const slot = document.createElement('div');
+      slot.className = 'slot blank';
+      slot.style.left = `${(c - 1) * 175}px`;
+      slot.style.top = `${58 + (r - 1) * 80}px`;
+      return slot;
+    }
+
+    function courseSlot(course) {
+      const slot = emptySlot(course.c, course.r);
+      slot.className = 'slot';
+      const btn = document.createElement('div');
+      const isPastDay = course.c < 5;
+      btn.className = 'course' + (course.selected ? ' selected' : '') + (course.waiting ? ' waiting' : '') + (course.full ? ' full' : '') + (isPastDay ? ' expired' : '');
+      btn.innerHTML = `
+        <span class="course-title">${course.title}</span>
+        <span class="course-time">08:00-09:00</span>
+        <span class="course-teacher">${course.teacher}</span>
+        <span class="course-booked">已订<strong>${course.booked}</strong></span>
+        ${course.queue ? `<span class="course-queue">排队<strong>${course.queue}</strong></span>` : ''}
+        ${course.min ? `<span class="course-min">${course.min}</span>` : ''}
+        ${course.status ? `<span class="course-status">${course.status}</span>` : ''}
+        ${course.full ? '<span class="full-badge">满</span>' : ''}
+      `;
+      slot.appendChild(btn);
+      return slot;
+    }
+
+    for (let r = 1; r <= 7; r += 1) {
+      for (let c = 1; c <= 7; c += 1) {
+        const course = courses.find(item => item.c === c && item.r === r);
+        calendar.appendChild(course ? courseSlot(course) : emptySlot(c, r));
+      }
+    }
+
+    const bottom = document.createElement('div');
+    bottom.className = 'bottom-note';
+    bottom.textContent = '到底了～';
+    calendar.appendChild(bottom);
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      window.clearTimeout(showToast.timer);
+      showToast.timer = window.setTimeout(() => toast.classList.remove('show'), 1600);
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelector('.tab.active').classList.remove('active');
+        tab.classList.add('active');
+        showToast(`已切换到${tab.textContent}`);
+      });
+    });
+
+    document.querySelector('.store-select').addEventListener('change', event => {
+      showToast(`门店：${event.target.value}`);
+    });
+
+    document.querySelector('.search-btn').addEventListener('click', () => {
+      showToast('已按当前条件刷新课程');
+    });
+
+    document.querySelector('.prev-btn').addEventListener('click', () => showToast('已切换到上一周'));
+    document.querySelector('.next-btn').addEventListener('click', () => showToast('已切换到下一周'));
+
+    document.querySelectorAll('.nav-btn').forEach(button => {
+      button.addEventListener('mouseenter', () => button.classList.add('is-hovering'));
+      button.addEventListener('mouseleave', () => button.classList.remove('is-hovering'));
+    });
+
+    function fitStage() {
+      const scale = Math.min(window.innerWidth / 1440, window.innerHeight / 840);
+      document.getElementById('stage').style.transform = `scale(${scale})`;
+      document.body.style.width = `${1440 * scale}px`;
+      document.body.style.height = `${840 * scale}px`;
+    }
+
+    window.addEventListener('resize', fitStage);
+    fitStage();
+  </script>
+</body>
+</html>
